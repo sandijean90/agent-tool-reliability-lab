@@ -1,0 +1,6 @@
+[project]
+name = "agent-tool-reliability-lab"
+version = "0.1.0"
+description = "A synthetic support-agent lab for retry reliability"
+requires-python = ">=3.13"
+dependencies = []
