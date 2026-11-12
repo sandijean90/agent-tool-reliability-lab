@@ -27,6 +27,33 @@ class TicketServiceTests(unittest.TestCase):
         )
         self.assertEqual(self.service.list_tickets(), (ticket,))
 
+    def test_identical_replay_returns_original_ticket(self) -> None:
+        request = {
+            "operation_id": "request-1",
+            "customer_id": "customer-1",
+            "subject": "Cannot sign in",
+        }
+        original = self.service.create_ticket(**request)
+
+        self.assertIs(self.service.create_ticket(**request), original)
+        self.assertEqual(self.service.list_tickets(), (original,))
+
+    def test_conflicting_details_leave_storage_unchanged(self) -> None:
+        request = {
+            "operation_id": "request-1",
+            "customer_id": "customer-1",
+            "subject": "Cannot sign in",
+        }
+        original = self.service.create_ticket(**request)
+
+        for field, value in (("customer_id", "customer-2"), ("subject", "Cannot print")):
+            with self.subTest(field=field):
+                conflicting_request = {**request, field: value}
+                with self.assertRaisesRegex(ValueError, "request-1"):
+                    self.service.create_ticket(**conflicting_request)
+                self.assertEqual(self.service.list_tickets(), (original,))
+                self.assertIs(self.service.create_ticket(**request), original)
+
     def test_distinct_operations_create_distinct_tickets(self) -> None:
         agent = SupportAgent(TicketTool(self.service))
         first = agent.open_ticket(

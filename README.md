@@ -14,7 +14,7 @@ sequenceDiagram
     Caller->>Agent: open_ticket(operation_id, customer_id, subject)
     Agent->>Tool: create_ticket(request fields)
     Tool->>Service: create_ticket(request fields)
-    Service->>Service: Assign ticket ID and store ticket in memory
+    Service->>Service: Store a new ticket or look up the existing operation
     Service-->>Tool: Ticket
     Tool-->>Agent: Ticket
     Agent-->>Caller: Ticket
@@ -22,7 +22,7 @@ sequenceDiagram
 
 1. The caller invokes `SupportAgent.open_ticket` with an operation ID, a customer ID, and a subject. The agent retries once on a timeout with the same request fields.
 2. `TicketTool.create_ticket` forwards the request to the service through a typed interface.
-3. `TicketService.create_ticket` assigns a ticket ID, stores the ticket in memory, and returns it through the tool and agent to the caller.
+3. `TicketService.create_ticket` stores one ticket per operation ID. Repeating an operation ID with the same customer ID and subject returns the original ticket. Reusing it with different details raises `ValueError` and leaves storage unchanged.
 
 ## Repository overview
 
@@ -36,7 +36,7 @@ sequenceDiagram
 | `src/support_agent/agent.py` | Agent entry point and retry policy. |
 | `src/support_agent/tools.py` | Typed adapter between the agent and ticket service. |
 | `src/support_agent/ticket_service.py` | Ticket data model and in-memory storage. |
-| `tests/test_ticket_service.py` | Tests ticket creation, stored fields, and distinct operations. |
+| `tests/test_ticket_service.py` | Tests ticket creation, identical replays, and conflicting requests. |
 | `tests/test_retry_behavior.py` | Tests ticket creation when the agent retries. |
 
 ## Try it locally
@@ -47,7 +47,7 @@ Use Python 3.13 or later. The demo uses only the standard library. From the repo
 PYTHONPATH=src python3 -B -m support_agent
 ```
 
-The example prints the created ticket. The service stores tickets in memory for the lifetime of the service instance.
+The example prints the created ticket. Deduplication applies to sequential calls within one service instance. Tickets are stored in memory and are not shared across instances or retained after a restart.
 
 ## Run the ticket creation tests
 
