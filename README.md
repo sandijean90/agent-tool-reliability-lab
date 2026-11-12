@@ -14,15 +14,15 @@ sequenceDiagram
     Caller->>Agent: open_ticket(operation_id, customer_id, subject)
     Agent->>Tool: create_ticket(request fields)
     Tool->>Service: create_ticket(request fields)
-    Service->>Service: Assign ticket ID and store ticket in memory
+    Service->>Service: Look up operation ID and create a ticket if new
     Service-->>Tool: Ticket
     Tool-->>Agent: Ticket
     Agent-->>Caller: Ticket
 ```
 
-1. The caller invokes `SupportAgent.open_ticket` with an operation ID, a customer ID, and a subject. The agent retries once on a timeout with the same request fields.
+1. The caller invokes `SupportAgent.open_ticket` with an operation ID, a customer ID, and a subject. The caller supplies one operation ID per logical request. The agent retries once on a timeout with the same request fields.
 2. `TicketTool.create_ticket` forwards the request to the service through a typed interface.
-3. `TicketService.create_ticket` assigns a ticket ID, stores the ticket in memory, and returns it through the tool and agent to the caller.
+3. `TicketService.create_ticket` stores one ticket per operation ID. Repeating an operation ID with the same customer ID and subject returns the original ticket. Reusing the ID with either field changed raises `ValueError` and preserves the stored ticket.
 
 ## Repository overview
 
@@ -47,10 +47,16 @@ Use Python 3.13 or later. The demo uses only the standard library. From the repo
 PYTHONPATH=src python3 -B -m support_agent
 ```
 
-The example prints the created ticket. The service stores tickets in memory for the lifetime of the service instance.
+The example prints the created ticket. Tickets and operation IDs are stored in memory for the lifetime of a single service instance.
 
 ## Run the ticket creation tests
 
 ```sh
 PYTHONPATH=src python3 -B -m unittest discover -s tests -p 'test_ticket_service.py' -v
+```
+
+Run the full suite, including the lost-response retry test.
+
+```sh
+PYTHONPATH=src python3 -B -m unittest discover -s tests -v
 ```
